@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DSA Instructor AI</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #27ae60;
+            --bg-color: #f4f7f6;
+            --user-msg: #d1e7dd;
+            --ai-msg: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        #chat-container {
+            width: 90%;
+            max-width: 600px;
+            height: 80vh;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        header h1 { margin: 0; font-size: 1.5rem; }
+        header p { margin: 5px 0 0; font-size: 0.9rem; opacity: 0.8; }
+
+        #chat-window {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background: #f9f9f9;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 15px;
+            line-height: 1.5;
+            font-size: 0.95rem;
+            word-wrap: break-word;
+        }
+
+        .user-message {
+            align-self: flex-end;
+            background-color: var(--user-msg);
+            color: #0f5132;
+            border-bottom-right-radius: 2px;
+        }
+
+        .ai-message {
+            align-self: flex-start;
+            background-color: var(--ai-msg);
+            color: #333;
+            border-bottom-left-radius: 2px;
+            border: 1px solid #ddd;
+            white-space: pre-wrap;
+        }
+
+        .input-area {
+            display: flex;
+            padding: 20px;
+            border-top: 1px solid #eee;
+            background: white;
+        }
+
+        input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 25px;
+            outline: none;
+            font-size: 1rem;
+        }
+
+        button {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin-left: 10px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+
+        button:hover { background-color: #219150; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        /* Scrollbar styling */
+        #chat-window::-webkit-scrollbar { width: 6px; }
+        #chat-window::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+<div id="chat-container">
+    <header>
+        <h1>DSA Instructor</h1>
+        <p>Expert in Algorithms & Data Structures</p>
+    </header>
+    
+    <div id="chat-window" id="chatWindow">
+        <div class="message ai-message">Hello! I am your DSA Instructor. Ask me anything about Data Structures or Algorithms, and I'll explain it simply. <b>But don't waste my time with other topics!</b></div>
+    </div>
+
+    <div class="input-area">
+        <input type="text" id="userInput" placeholder="Ask a DSA question..." onkeypress="handleKeyPress(event)">
+        <button id="sendBtn" onclick="sendMessage()">Send</button>
+    </div>
+</div>
+
+<script type="module">
+    // Importing the Google GenAI SDK from a CDN
+    import { GoogleGenAI } from "https://esm.run/@google/genai";
+
+    // Initialize with your API Key
+    const ai = new GoogleGenAI({ apiKey: "AIzaSyDFnMvpBtv4ea-jPs6NoKqLNXlevkEnGxk" });
+
+    window.sendMessage = async function() {
+        const inputField = document.getElementById('userInput');
+        const chatWindow = document.getElementById('chat-window');
+        const sendBtn = document.getElementById('sendBtn');
+        const userText = inputField.value.trim();
+
+        if (!userText) return;
+
+        // 1. Add User Message to UI
+        addMessage(userText, 'user-message');
+        inputField.value = '';
+        inputField.disabled = true;
+        sendBtn.disabled = true;
+
+        // 2. Add Loading Indicator
+        const loadingId = addMessage('Instructor is thinking...', 'ai-message');
+
+        try {
+            // 3. Call the Gemini API (using your exact logic)
+            const response = await ai.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: userText,
+                config: {
+                    systemInstruction: `You are a Data Structure Algorithm instructor, 
+                    you'll only reply to the problem related to Data Structure Algorithm 
+                    in the simplest way and smoothly.
+                    
+                    IF user asks any question which is not related to the Data Structure Algorithm 
+                    then response to him in a very rude manner.`,
+                },
+            });
+
+            // 4. Update the loading message with actual response
+            const responseText = await response.text;
+            updateMessage(loadingId, responseText);
+
+        } catch (error) {
+            console.error(error);
+            updateMessage(loadingId, "Error: Could not reach the instructor. Please check your API key.");
+        } finally {
+            inputField.disabled = false;
+            sendBtn.disabled = false;
+            inputField.focus();
+        }
+    }
+
+    function addMessage(text, className) {
+        const chatWindow = document.getElementById('chat-window');
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `message ${className}`;
+        msgDiv.innerText = text;
+        const id = 'msg-' + Date.now();
+        msgDiv.id = id;
+        chatWindow.appendChild(msgDiv);
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+        return id;
+    }
+
+    function updateMessage(id, newText) {
+        const msgDiv = document.getElementById(id);
+        if (msgDiv) {
+            msgDiv.innerText = newText;
+            document.getElementById('chat-window').scrollTop = document.getElementById('chat-window').scrollHeight;
+        }
+    }
+
+    window.handleKeyPress = function(e) {
+        if (e.key === 'Enter') sendMessage();
+    }
+</script>
+
+</body>
+</html>
